@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.dto.EndpointHitDto;
@@ -25,14 +24,14 @@ public class StatsController {
 
     @PostMapping("/hit")
     @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<EndpointHitDto> saveHit(@Valid @RequestBody EndpointHitDto endpointHitDto) {
+    public void saveHit(@Valid @RequestBody EndpointHitDto endpointHitDto) {
         log.info("POST /hit: app={}, uri={}, ip={}",
                 endpointHitDto.getApp(), endpointHitDto.getUri(), endpointHitDto.getIp());
-        return ResponseEntity.ok(statsService.saveHit(endpointHitDto));
+        statsService.saveHit(endpointHitDto);
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<List<ViewStatsDto>> getStats(
+    public List<ViewStatsDto> getStats(
             @RequestParam @NotNull @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime start,
             @RequestParam @NotNull @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime end,
             @RequestParam(required = false) List<String> uris,
@@ -44,6 +43,6 @@ public class StatsController {
             throw new IllegalArgumentException("Start date must be before end date");
         }
 
-        return ResponseEntity.ok(statsService.getStats(start, end, uris, unique));
+        return statsService.getStats(start, end, uris, unique);
     }
 }
