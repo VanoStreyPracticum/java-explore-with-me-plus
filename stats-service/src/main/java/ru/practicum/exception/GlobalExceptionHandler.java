@@ -18,11 +18,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Global exception handler for the Statistics Service.
+ * <p>
+ * Provides centralized exception handling across all REST controllers.
+ * Converts exceptions to appropriate HTTP responses with consistent
+ * error message format. All errors are logged for debugging purposes.
+ * </p>
+ *
+ * @author Explore With Me Team
+ * @version 1.0
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Кастомные исключения
+    // ==================== Custom Application Exceptions ====================
+
+    /**
+     * Handles custom validation exceptions from business logic.
+     */
     @ExceptionHandler(ValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleValidationException(ValidationException ex) {
@@ -30,6 +45,9 @@ public class GlobalExceptionHandler {
         return Map.of("error", ex.getMessage());
     }
 
+    /**
+     * Handles illegal argument exceptions (e.g., invalid date ranges).
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleIllegalArgumentException(IllegalArgumentException ex) {
@@ -37,6 +55,9 @@ public class GlobalExceptionHandler {
         return Map.of("error", ex.getMessage());
     }
 
+    /**
+     * Handles resource not found exceptions.
+     */
     @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleNotFoundException(NotFoundException ex) {
@@ -44,6 +65,9 @@ public class GlobalExceptionHandler {
         return Map.of("error", ex.getMessage());
     }
 
+    /**
+     * Handles access denied exceptions.
+     */
     @ExceptionHandler(ForbiddenException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public Map<String, String> handleForbiddenException(ForbiddenException ex) {
@@ -51,6 +75,9 @@ public class GlobalExceptionHandler {
         return Map.of("error", ex.getMessage());
     }
 
+    /**
+     * Handles conflict exceptions (e.g., duplicate resources).
+     */
     @ExceptionHandler(ConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleConflictException(ConflictException ex) {
@@ -58,6 +85,9 @@ public class GlobalExceptionHandler {
         return Map.of("error", ex.getMessage());
     }
 
+    /**
+     * Handles bad request exceptions from controllers.
+     */
     @ExceptionHandler(BadRequestException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleBadRequestException(BadRequestException ex) {
@@ -65,7 +95,12 @@ public class GlobalExceptionHandler {
         return Map.of("error", ex.getMessage());
     }
 
-    // Валидация @Valid в DTO
+    // ==================== Spring Validation Exceptions ====================
+
+    /**
+     * Handles @Valid annotation failures on request body DTOs.
+     * Collects all field validation errors into a structured response.
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
@@ -77,13 +112,15 @@ public class GlobalExceptionHandler {
         
         return Map.of(
             "errors", errors,
-            "message", "Ошибка валидации",
+            "message", "Validation failed",
             "timestamp", LocalDateTime.now(),
             "status", "BAD_REQUEST"
         );
     }
 
-    // Валидация параметров запроса (@RequestParam)
+    /**
+     * Handles constraint violations on @RequestParam and @PathVariable.
+     */
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, Object> handleConstraintViolationException(ConstraintViolationException ex) {
@@ -96,21 +133,26 @@ public class GlobalExceptionHandler {
         
         return Map.of(
             "errors", errors,
-            "message", "Нарушение ограничений валидации",
+            "message", "Constraint validation failed",
             "timestamp", LocalDateTime.now(),
             "status", "BAD_REQUEST"
         );
     }
 
-    // Некорректный JSON
+    // ==================== Request Parsing Exceptions ====================
+
+    /**
+     * Handles malformed JSON in request body.
+     * Provides detailed error message for format issues.
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
-        String message = "Некорректный JSON в теле запроса";
+        String message = "Invalid JSON in request body";
         
         if (ex.getCause() instanceof InvalidFormatException) {
             InvalidFormatException ife = (InvalidFormatException) ex.getCause();
-            message = String.format("Некорректный формат для поля '%s': ожидается %s", 
+            message = String.format("Invalid format for field '%s': expected %s", 
                 ife.getPath().get(0).getFieldName(), ife.getTargetType().getSimpleName());
         }
         
@@ -118,38 +160,51 @@ public class GlobalExceptionHandler {
         return Map.of("error", message);
     }
 
-    // Отсутствуют обязательные параметры
+    /**
+     * Handles missing required request parameters.
+     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleMissingServletRequestParameterException(MissingServletRequestParameterException ex) {
-        String message = String.format("Отсутствует обязательный параметр: %s", ex.getParameterName());
+        String message = String.format("Required parameter is missing: %s", ex.getParameterName());
         log.warn("Missing parameter: {}", ex.getParameterName());
         return Map.of("error", message);
     }
 
-    // Неверный тип параметра
+    /**
+     * Handles type mismatch in request parameters (e.g., string instead of number).
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
-        String message = String.format("Параметр '%s' должен быть типа '%s'", 
+        String message = String.format("Parameter '%s' must be of type '%s'", 
             ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
         log.warn("Type mismatch: {}", message);
         return Map.of("error", message);
     }
 
-    // Нарушение целостности данных в БД
+    // ==================== Database Exceptions ====================
+
+    /**
+     * Handles database constraint violations (e.g., unique key conflicts).
+     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public Map<String, String> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
         log.error("Data integrity violation: {}", ex.getMessage(), ex);
-        return Map.of("error", "Нарушение целостности данных");
+        return Map.of("error", "Data integrity violation");
     }
 
-    // Все остальные исключения
+    // ==================== Fallback Handler ====================
+
+    /**
+     * Catches all unhandled exceptions as a safety net.
+     * Returns generic error to avoid exposing internal details.
+     */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Map<String, String> handleException(Exception ex) {
         log.error("Internal server error: {}", ex.getMessage(), ex);
-        return Map.of("error", "Внутренняя ошибка сервера");
+        return Map.of("error", "Internal server error");
     }
 }
